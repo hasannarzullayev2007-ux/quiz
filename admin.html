@@ -3,14 +3,15 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script><script src="config.js"></script>
 <script>
-const app=document.getElementById("app");let rows=[];
+const app=document.getElementById("app");let rows=[],Qs=[];
 function login(m){app.innerHTML=`<h1>Admin</h1><div class="card" style="max-width:380px"><input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Parol"><div class="err">${m||""}</div><button class="m" onclick="doLogin()">Kirish</button></div>`}
 async function doLogin(){const{error}=await sb.auth.signInWithPassword({email:em.value.trim(),password:pw.value});error?login("Email yoki parol xato"):panel()}
 async function panel(){app.innerHTML=`<h1>Natijalar</h1><input id="q" placeholder="Qidirish: ism, telefon, kod, fan" oninput="draw()"><p id="st"></p><div class="tw" id="tb"></div>
 <button class="s" onclick="csv()">CSV yuklab olish</button> <button class="s" onclick="sb.auth.signOut().then(()=>login())">Chiqish</button>
-<h1 style="margin-top:32px">QR kodlar</h1><p>Flyerga shu QR kodlarni qoʻying. Har biri tegishli fan testini ochadi.</p><div class="g" id="qr"></div>`;
+<h1 style="margin-top:32px">QR kodlar</h1><p>Flyerga shu QR kodlarni qoʻying. Har biri tegishli fan testini ochadi.</p><div class="g" id="qr"></div>
+<h1 style="margin-top:32px">Savollar</h1><p>Fanni tanlang, savolni oʻzgartiring, toʻgʻri javob doirachasini belgilab “Saqlash” bosing. Oʻzgarish faqat yangi topshiruvchilarga taʼsir qiladi.</p><select id="sj" onchange="loadQ()" style="width:100%;padding:12px;border-radius:10px;margin-bottom:8px">${Object.keys(SUBJ).map(k=>`<option value="${k}">${SUBJ[k]}</option>`).join("")}</select><div id="ql"></div>`;
 const{data,error}=await sb.from("results").select("*").order("created_at",{ascending:false});
-if(error){st.textContent="Oʻqib boʻlmadi: "+error.message;return}rows=data;draw();qrs()}
+if(error){st.textContent="Oʻqib boʻlmadi: "+error.message;return}rows=data;draw();qrs();loadQ()}
 function draw(){const s=q.value.toLowerCase(),r=rows.filter(x=>[x.name,x.phone,x.code,SUBJ[x.subject]].join(" ").toLowerCase().includes(s));
 st.textContent=`Jami: ${rows.length} · koʻrsatilgan: ${r.length} · ishlatilgan: ${rows.filter(x=>x.redeemed).length}`;
 tb.innerHTML="<table><tr><th>Sana</th><th>Ism</th><th>Telefon</th><th>Fan</th><th>Ball</th><th>Yutuq</th><th>Kod</th><th>Muddat</th><th>Holat</th></tr>"+r.map(x=>`<tr><td>${new Date(x.created_at).toLocaleDateString("uz-UZ")}</td><td>${esc(x.name)}</td><td>${esc(x.phone)}</td><td>${esc(SUBJ[x.subject]||x.subject)}</td><td>${x.score}/${x.total}</td><td>${esc(x.prize)}</td><td><b>${esc(x.code)}</b></td><td>${esc(x.expires_at)}</td><td>${x.redeemed?"✅ ishlatilgan":`<button class="s" onclick="redeem(${x.id})">Ishlatildi</button>`}</td></tr>`).join("")+"</table>"}
@@ -24,5 +25,15 @@ function qrs(){const base=location.origin+"/";qr.innerHTML="";Object.keys(SUBJ).
 const b=document.createElement("div");c.innerHTML=`<b>${SUBJ[k]}</b><p style="word-break:break-all">${base}#${k}</p>`;c.appendChild(b);
 new QRCode(b,{text:base+"#"+k,width:512,height:512,correctLevel:QRCode.CorrectLevel.M});b.querySelectorAll("canvas,img").forEach(e=>e.style.width="100%");
 const d=document.createElement("button");d.className="s";d.textContent="PNG yuklab olish";d.onclick=()=>{const cv=b.querySelector("canvas"),a=document.createElement("a");a.href=cv.toDataURL("image/png");a.download="qr-"+k+".png";a.click()};c.appendChild(d);qr.appendChild(c)})}
+async function loadQ(){const{data,error}=await sb.from("questions").select("*").eq("subject",sj.value).order("position");
+if(error){ql.textContent=error.message;return}Qs=data;
+ql.innerHTML=data.map(x=>`<div class="card"><b>${x.position}-savol</b><input id="t${x.id}" value="${esc(x.text)}">`+x.options.map((o,j)=>`<label style="display:flex;gap:8px;align-items:center"><input type="radio" style="width:auto" name="c${x.id}" value="${j}" ${j==x.correct?"checked":""}><input id="o${x.id}_${j}" value="${esc(o)}"></label>`).join("")+`<p>Toʻgʻri javob: belgilangan doircha.</p><button class="s" onclick="saveQ(${x.id})">Saqlash</button> <button class="s" onclick="delQ(${x.id})">Oʻchirish</button></div>`).join("")+`<button class="m" onclick="addQ()">+ Savol qoʻshish</button>`}
+async function saveQ(id){const x=Qs.find(q=>q.id==id),o=x.options.map((_,j)=>document.getElementById("o"+id+"_"+j).value.trim()),t=document.getElementById("t"+id).value.trim(),c=document.querySelector(`input[name=c${id}]:checked`);
+if(!t||o.some(v=>!v)||!c)return alert("Hamma maydonni toʻldiring va toʻgʻri javobni belgilang");
+const{error}=await sb.from("questions").update({text:t,options:o,correct:+c.value}).eq("id",id);alert(error?error.message:"Saqlandi")}
+async function delQ(id){if(Qs.length<3)return alert("Kamida 2 ta savol qolishi kerak");if(!confirm("Savol oʻchirilsinmi?"))return;
+const{error}=await sb.from("questions").delete().eq("id",id);if(error)return alert(error.message);
+const r=Qs.filter(q=>q.id!=id);for(let i=0;i<r.length;i++)if(r[i].position!=i+1)await sb.from("questions").update({position:i+1}).eq("id",r[i].id);loadQ()}
+async function addQ(){const{error}=await sb.from("questions").insert({subject:sj.value,position:Qs.length+1,text:"Yangi savol",options:["A","B","C","D"],correct:0});if(error)return alert(error.message);loadQ()}
 sb.auth.getSession().then(({data})=>data.session?panel():login());
 </script></body></html>
