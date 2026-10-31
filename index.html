@@ -1,25 +1,33 @@
-<!DOCTYPE html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bilimingni tekshir, chegirma yut!</title><link rel="stylesheet" href="style.css"></head><body><main id="app"></main>
+<!DOCTYPE html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Elegant Mind · bilimingizni sinang</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Lora:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="quiz.css"></head><body><div class="wrap">
+<header><svg class="mono" viewBox="0 0 64 64" fill="none" stroke="currentColor"><circle cx="32" cy="32" r="30"/><circle cx="32" cy="32" r="26" stroke-opacity=".5"/><path d="M32 3v5M32 56v5M3 32h5M56 32h5" stroke-opacity=".7"/><text x="32" y="40" text-anchor="middle" font-size="24" font-family="Cormorant Garamond,Georgia,serif" font-weight="700" fill="currentColor" stroke="none">EM</text></svg>
+<div class="brand">ELEGANT MIND</div><div class="sub">oʻquv markazi</div><div class="orn"><i></i><b>◆</b><i></i></div></header>
+<div id="app"></div><footer>Elegant Mind · oʻquv markazi</footer></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script><script src="config.js"></script>
 <script>
-const app=document.getElementById("app");let sid,Q=[],qi=0,ans=[],who={};
-function home(){app.innerHTML='<h1>Bilimingni tekshir, chegirma yut!</h1><p>Fanni tanlang. 1 daqiqa, yutuq kafolatlangan.</p>'+Object.keys(SUBJ).map(k=>`<button onclick="location.hash='${k}'">${SUBJ[k]}</button>`).join("")}
+const app=document.getElementById("app"),RN=["I","II","III","IV","V","VI"];let sid,Q=[],qi=0,ans=[],who={},busy=false;
+function home(){app.innerHTML='<h2>Bilimingizni tekshiring,<br>chegirma yuting</h2><p>Fanni tanlang. Test bir daqiqa davom etadi, yutuq har bir ishtirokchiga.</p>'+Object.keys(SUBJ).map((k,i)=>`<button onclick="location.hash='${k}'"><span class="no">${RN[i]}</span>${SUBJ[k]}<span class="ar">›</span></button>`).join("")}
 function intro(){const d=localStorage.getItem("done-"+sid);
-if(d){app.innerHTML=`<h1>${SUBJ[sid]}</h1><div class="card"><p>Siz bu testni topshirgansiz. Kodingiz:</p><div class="code">${esc(d)}</div></div><button onclick="location.hash=''">Boshqa fan</button>`;return}
-app.innerHTML=`<h1>${SUBJ[sid]} testi</h1><p>Yutuq shu telefon raqamga rasmiylashtiriladi.</p><div class="card"><input id="nm" placeholder="Ismingiz"><input id="ph" placeholder="Telefon: 90 123 45 67" inputmode="tel"><div class="err" id="er"></div><button class="m" onclick="start()">Testni boshlash</button></div>`}
+if(d){app.innerHTML=`<h2>${SUBJ[sid]}</h2><div class="card"><p>Siz bu testni topshirgansiz. Kodingiz:</p><div class="code">${esc(d)}</div></div><button onclick="location.hash=''"><span class="no">‹</span>Boshqa fan</button>`;return}
+app.innerHTML=`<h2>${SUBJ[sid]}</h2><p>Yutuq shu telefon raqamga rasmiylashtiriladi.</p><div class="card"><input id="nm" placeholder="Ismingiz" autocomplete="name"><input id="ph" placeholder="Telefon: 90 123 45 67" inputmode="tel" autocomplete="tel"><div class="err" id="er"></div><button class="m" onclick="start()">Testni boshlash</button></div>`}
 async function start(){const n=nm.value.trim(),p=ph.value.replace(/\D/g,"");
 if(n.length<2||p.length<9){er.textContent="Ism va toʻliq telefon raqamini kiriting.";return}
 who={n,p};er.textContent="Yuklanmoqda…";const{data,error}=await sb.rpc("get_questions",{p_subject:sid});
 if(error||!data||!data.length){er.textContent="Xatolik. Keyinroq urinib koʻring.";return}
-Q=data;qi=0;ans=[];ask()}
-function ask(){const q=Q[qi];app.innerHTML=`<p>${SUBJ[sid]} · ${qi+1}/${Q.length}</p><div class="bar"><i style="width:${qi/Q.length*100}%"></i></div><div class="card"><b>${esc(q.q)}</b>${q.options.map((o,i)=>`<button onclick="pick(${i})">${esc(o)}</button>`).join("")}</div>`}
-function pick(i){ans.push(i);++qi<Q.length?ask():fin()}
-async function fin(){app.innerHTML="<p>Natija hisoblanmoqda…</p>";
+Q=data;qi=0;ans=[];busy=false;ask()}
+function ask(){const q=Q[qi];app.innerHTML=`<div class="crumb">${SUBJ[sid]} · ${qi+1} / ${Q.length}</div><div class="bar"><i style="width:${qi/Q.length*100}%"></i></div><div class="card"><b class="q">${esc(q.q)}</b>${q.options.map((o,i)=>`<button onclick="pick(${i},this)"><span class="no">${"ABCD"[i]}</span>${esc(o)}</button>`).join("")}</div>`}
+function pick(i,el){if(busy)return;busy=true;el.classList.add("chosen");setTimeout(()=>{busy=false;ans.push(i);++qi<Q.length?ask():fin()},380)}
+async function fin(){app.innerHTML='<p class="crumb">Natija hisoblanmoqda…</p>';
 const{data,error}=await sb.rpc("submit_test",{p_subject:sid,p_name:who.n,p_phone:who.p,p_answers:ans});
-if(error||data.error){app.innerHTML=`<h1>Kechirasiz</h1><div class="card"><p>${data&&data.error=="already_taken"?"Bu raqam bilan bu fandan test topshirilgan.":"Xatolik yuz berdi. Qayta urinib koʻring."}</p></div><button onclick="location.hash=''">Orqaga</button>`;return}
+if(error||data.error){app.innerHTML=`<h2>Kechirasiz</h2><div class="card"><p>${data&&data.error=="already_taken"?"Bu raqam bilan bu fandan test topshirilgan.":"Xatolik yuz berdi. Qayta urinib koʻring."}</p></div><button onclick="location.hash=''"><span class="no">‹</span>Orqaga</button>`;return}
 localStorage.setItem("done-"+sid,data.code);
 const d=new Date(data.expires).toLocaleDateString("uz-UZ");
-app.innerHTML=`<h1>Natija: ${data.score}/${data.total}</h1><div class="card"><p>Sizning yutugʻingiz:</p><div class="prize">${esc(data.prize)}</div><p>${SUBJ[sid]}. ${d} gacha amal qiladi.</p><div class="code">${esc(data.code)}</div><p><b>Shu ekranni skrinshot qiling</b> va oʻquv markaziga yuboring yoki koʻrsating.</p></div><button onclick="location.hash=''">Boshqa fan</button>`}
-function route(){const k=location.hash.slice(1);if(SUBJ[k]){sid=k;intro()}else home()}
+app.innerHTML=`<h2>Natija: ${data.score} / ${data.total}</h2><div class="card"><p>Sizning yutugʻingiz</p><div class="prize">${esc(data.prize)}</div><p>${SUBJ[sid]} · ${d} gacha amal qiladi</p><div class="code">${esc(data.code)}</div><p><b>Shu ekranni skrinshot qiling</b> va oʻquv markaziga yuboring yoki koʻrsating.</p></div><button onclick="location.hash=''"><span class="no">‹</span>Boshqa fanni sinash</button>`}
+function route(){const k=location.hash.slice(1);busy=false;if(SUBJ[k]){sid=k;intro()}else home()}
 addEventListener("hashchange",route);route();
+document.addEventListener("pointerdown",e=>{const b=e.target.closest("button");if(!b)return;const r=b.getBoundingClientRect(),s=document.createElement("span"),d=Math.max(r.width,r.height)*2;s.className="rp";s.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left-d/2}px;top:${e.clientY-r.top-d/2}px`;b.appendChild(s);setTimeout(()=>s.remove(),700);
+for(let i=0;i<9;i++){const p=document.createElement("i"),a=Math.PI*2*i/9,m=26+Math.random()*28;p.className="sp";p.textContent="◆";p.style.cssText=`left:${e.clientX}px;top:${e.clientY}px;--x:${Math.cos(a)*m}px;--y:${Math.sin(a)*m}px`;document.body.appendChild(p);setTimeout(()=>p.remove(),800)}});
 </script></body></html>
