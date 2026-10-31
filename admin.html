@@ -1,0 +1,28 @@
+<!DOCTYPE html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin</title><link rel="stylesheet" href="style.css"></head><body><main class="w" id="app"></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script><script src="config.js"></script>
+<script>
+const app=document.getElementById("app");let rows=[];
+function login(m){app.innerHTML=`<h1>Admin</h1><div class="card" style="max-width:380px"><input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Parol"><div class="err">${m||""}</div><button class="m" onclick="doLogin()">Kirish</button></div>`}
+async function doLogin(){const{error}=await sb.auth.signInWithPassword({email:em.value.trim(),password:pw.value});error?login("Email yoki parol xato"):panel()}
+async function panel(){app.innerHTML=`<h1>Natijalar</h1><input id="q" placeholder="Qidirish: ism, telefon, kod, fan" oninput="draw()"><p id="st"></p><div class="tw" id="tb"></div>
+<button class="s" onclick="csv()">CSV yuklab olish</button> <button class="s" onclick="sb.auth.signOut().then(()=>login())">Chiqish</button>
+<h1 style="margin-top:32px">QR kodlar</h1><p>Flyerga shu QR kodlarni qoʻying. Har biri tegishli fan testini ochadi.</p><div class="g" id="qr"></div>`;
+const{data,error}=await sb.from("results").select("*").order("created_at",{ascending:false});
+if(error){st.textContent="Oʻqib boʻlmadi: "+error.message;return}rows=data;draw();qrs()}
+function draw(){const s=q.value.toLowerCase(),r=rows.filter(x=>[x.name,x.phone,x.code,SUBJ[x.subject]].join(" ").toLowerCase().includes(s));
+st.textContent=`Jami: ${rows.length} · koʻrsatilgan: ${r.length} · ishlatilgan: ${rows.filter(x=>x.redeemed).length}`;
+tb.innerHTML="<table><tr><th>Sana</th><th>Ism</th><th>Telefon</th><th>Fan</th><th>Ball</th><th>Yutuq</th><th>Kod</th><th>Muddat</th><th>Holat</th></tr>"+r.map(x=>`<tr><td>${new Date(x.created_at).toLocaleDateString("uz-UZ")}</td><td>${esc(x.name)}</td><td>${esc(x.phone)}</td><td>${esc(SUBJ[x.subject]||x.subject)}</td><td>${x.score}/${x.total}</td><td>${esc(x.prize)}</td><td><b>${esc(x.code)}</b></td><td>${esc(x.expires_at)}</td><td>${x.redeemed?"✅ ishlatilgan":`<button class="s" onclick="redeem(${x.id})">Ishlatildi</button>`}</td></tr>`).join("")+"</table>"}
+async function redeem(id){if(!confirm("Kod ishlatildi deb belgilansinmi?"))return;
+const{error}=await sb.from("results").update({redeemed:true,redeemed_at:new Date().toISOString()}).eq("id",id);
+if(error)return alert(error.message);const x=rows.find(r=>r.id==id);x.redeemed=true;draw()}
+function csv(){const h=["created_at","name","phone","subject","score","total","prize","code","expires_at","redeemed"];
+const t=[h.join(",")].concat(rows.map(x=>h.map(k=>'"'+String(x[k]??"").replace(/"/g,'""')+'"').join(","))).join("\n");
+const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+t],{type:"text/csv"}));a.download="natijalar.csv";a.click()}
+function qrs(){const base=location.origin+"/";qr.innerHTML="";Object.keys(SUBJ).forEach(k=>{const c=document.createElement("div");c.className="card";
+const b=document.createElement("div");c.innerHTML=`<b>${SUBJ[k]}</b><p style="word-break:break-all">${base}#${k}</p>`;c.appendChild(b);
+new QRCode(b,{text:base+"#"+k,width:512,height:512,correctLevel:QRCode.CorrectLevel.M});b.querySelectorAll("canvas,img").forEach(e=>e.style.width="100%");
+const d=document.createElement("button");d.className="s";d.textContent="PNG yuklab olish";d.onclick=()=>{const cv=b.querySelector("canvas"),a=document.createElement("a");a.href=cv.toDataURL("image/png");a.download="qr-"+k+".png";a.click()};c.appendChild(d);qr.appendChild(c)})}
+sb.auth.getSession().then(({data})=>data.session?panel():login());
+</script></body></html>

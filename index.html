@@ -1,0 +1,25 @@
+<!DOCTYPE html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bilimingni tekshir, chegirma yut!</title><link rel="stylesheet" href="style.css"></head><body><main id="app"></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script><script src="config.js"></script>
+<script>
+const app=document.getElementById("app");let sid,Q=[],qi=0,ans=[],who={};
+function home(){app.innerHTML='<h1>Bilimingni tekshir, chegirma yut!</h1><p>Fanni tanlang. 1 daqiqa, yutuq kafolatlangan.</p>'+Object.keys(SUBJ).map(k=>`<button onclick="location.hash='${k}'">${SUBJ[k]}</button>`).join("")}
+function intro(){const d=localStorage.getItem("done-"+sid);
+if(d){app.innerHTML=`<h1>${SUBJ[sid]}</h1><div class="card"><p>Siz bu testni topshirgansiz. Kodingiz:</p><div class="code">${esc(d)}</div></div><button onclick="location.hash=''">Boshqa fan</button>`;return}
+app.innerHTML=`<h1>${SUBJ[sid]} testi</h1><p>Yutuq shu telefon raqamga rasmiylashtiriladi.</p><div class="card"><input id="nm" placeholder="Ismingiz"><input id="ph" placeholder="Telefon: 90 123 45 67" inputmode="tel"><div class="err" id="er"></div><button class="m" onclick="start()">Testni boshlash</button></div>`}
+async function start(){const n=nm.value.trim(),p=ph.value.replace(/\D/g,"");
+if(n.length<2||p.length<9){er.textContent="Ism va toʻliq telefon raqamini kiriting.";return}
+who={n,p};er.textContent="Yuklanmoqda…";const{data,error}=await sb.rpc("get_questions",{p_subject:sid});
+if(error||!data||!data.length){er.textContent="Xatolik. Keyinroq urinib koʻring.";return}
+Q=data;qi=0;ans=[];ask()}
+function ask(){const q=Q[qi];app.innerHTML=`<p>${SUBJ[sid]} · ${qi+1}/${Q.length}</p><div class="bar"><i style="width:${qi/Q.length*100}%"></i></div><div class="card"><b>${esc(q.q)}</b>${q.options.map((o,i)=>`<button onclick="pick(${i})">${esc(o)}</button>`).join("")}</div>`}
+function pick(i){ans.push(i);++qi<Q.length?ask():fin()}
+async function fin(){app.innerHTML="<p>Natija hisoblanmoqda…</p>";
+const{data,error}=await sb.rpc("submit_test",{p_subject:sid,p_name:who.n,p_phone:who.p,p_answers:ans});
+if(error||data.error){app.innerHTML=`<h1>Kechirasiz</h1><div class="card"><p>${data&&data.error=="already_taken"?"Bu raqam bilan bu fandan test topshirilgan.":"Xatolik yuz berdi. Qayta urinib koʻring."}</p></div><button onclick="location.hash=''">Orqaga</button>`;return}
+localStorage.setItem("done-"+sid,data.code);
+const d=new Date(data.expires).toLocaleDateString("uz-UZ");
+app.innerHTML=`<h1>Natija: ${data.score}/${data.total}</h1><div class="card"><p>Sizning yutugʻingiz:</p><div class="prize">${esc(data.prize)}</div><p>${SUBJ[sid]}. ${d} gacha amal qiladi.</p><div class="code">${esc(data.code)}</div><p><b>Shu ekranni skrinshot qiling</b> va oʻquv markaziga yuboring yoki koʻrsating.</p></div><button onclick="location.hash=''">Boshqa fan</button>`}
+function route(){const k=location.hash.slice(1);if(SUBJ[k]){sid=k;intro()}else home()}
+addEventListener("hashchange",route);route();
+</script></body></html>
